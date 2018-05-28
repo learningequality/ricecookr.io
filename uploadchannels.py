@@ -12,4 +12,5 @@ KOLIBRI_TOKEN = parameters["kolibri"]["token"]
 LANGUAGES = ["en", "fr", "es", "pt", "pt-br", "pl", "tr", "ru", "zh", "zh-tw", "ar"]
 
 for ln in LANGUAGES:
-    os.system("python3 -m ricecooker uploadchannel \"ricecookr.py\" --reset --publish --token={} language_code={}".format(KOLIBRI_TOKEN, ln))
+    os.system("./sushichef.py --reset --stage --token={} language_code={}".format(KOLIBRI_TOKEN, ln))
+# TODO(refactor this to send socket json --- can assume all channels running with --daemon)
