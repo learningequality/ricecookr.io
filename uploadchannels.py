@@ -4,7 +4,7 @@ import os
 import yaml
 
 # Reading API credentials from parameters.yml
-with open("parameters.yml", "r") as f:
+with open("credentials/parameters.yml", "r") as f:
     parameters = yaml.load(f)
 
 # Sikana's API access
