@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 """
 Sikana's content is organized as follow:
 - There is a top level set of categories (e.g. Health, Nature, Art, ...)
@@ -6,61 +6,53 @@ Sikana's content is organized as follow:
 - Each program has chapters
 - Finally, each chapter has contents like videos, images, or PDF files.
 """
-import sys
 import yaml
-from enum import Enum
-from ricecooker.classes import nodes, questions, files
+from ricecooker.chefs import SushiChef
+from ricecooker.classes import nodes, files
 from ricecooker.classes.nodes import ChannelNode
 from ricecooker.classes.licenses import get_license
-from ricecooker.exceptions import UnknownContentKindError, UnknownFileTypeError, UnknownQuestionTypeError, raise_for_invalid_channel
+from ricecooker.exceptions import raise_for_invalid_channel
 
 from le_utils.constants import licenses, languages
-from sikana_api import *
+from sikana_api import SikanaApi
 
 
 ### Global variables
+BASE_URL = "https://www.sikana.tv"
+SIKANA_LANGUAGES = ["en", "fr", "es", "pt", "pt-br", "pl", "tr", "ru", "zh", "zh-tw", "ar"]
 
 # Reading API credentials from parameters.yml
-with open("parameters.yml", "r") as f:
+with open("credentials/parameters.yml", "r") as f:
     parameters = yaml.load(f)
-
-# Sikana's API access
 SIKANA_CLIENT_ID = parameters["api"]["client_id"]
 SIKANA_SECRET = parameters["api"]["secret"]
 
-BASE_URL = "https://www.sikana.tv"
 
 
-def construct_channel(**kwargs):
+# HELPER METHODS
+################################################################################
+
+def _getlang_caps(code):
     """
-    Constructs a Kolibri channel for given language
+    Convert country code suffix to CAPITALS and match to internal represenation.
     """
-
-    # Channel language
-    if "language_code" in kwargs:
-        language_code = kwargs["language_code"]
-    else:
-        language_code = "en"
-
-    channel = ChannelNode(
-        source_domain = "sikana.tv",
-        source_id = "sikana-channel-" + language_code,
-        title = "Sikana " + language_code.upper(),
-        description = "Sikana is an NGO aiming at producing educative videos to share practical knowledge and skills.",
-        thumbnail = "./sikana_logo.png"
-    )
-
-    _build_tree(channel, language_code) # Filling the channel with Sikana content
-    raise_for_invalid_channel(channel)  # Raising exceptions
-
-    return channel
+    if '-' in code:
+        parts = code.split('-')
+        code = parts[0] + '-' + parts[1].upper()
+    return languages.getlang(code)
 
 
-def _build_tree(node, language_code):
+
+# MAIN TREE-BUILDING LOGIC
+################################################################################
+
+def _build_tree(channel_node, language_code):
     """
     Builds the content tree with Sikana content
     using Sikana API
     """
+    lang_obj = _getlang_caps(language_code)
+
 
     # Building an access to Sikana API
     sikana_api = SikanaApi(
@@ -78,7 +70,7 @@ def _build_tree(node, language_code):
             source_id = cat["name"],
             title = cat["localizedName"]
         )
-        node.add_child(category_node)
+        channel_node.add_child(category_node)
 
         # Getting programs belonging to this category from Sikana API
         programs = sikana_api.get_programs(language_code, cat["name"])
@@ -90,6 +82,7 @@ def _build_tree(node, language_code):
                 title = programs[prog]["name"],
                 description = programs[prog].get("description"),
                 thumbnail = programs[prog].get("image"),
+                language = lang_obj.code,
             )
             category_node.add_child(program_node)
 
@@ -122,21 +115,88 @@ def _build_tree(node, language_code):
                             source_id = v["nameCanonical"],
                             title = video["video"]["title"],
                             description = description,
-                            derive_thumbnail = False, # video-specific data
+                            derive_thumbnail = False,   # video-specific data
                             license = get_license(licenses.CC_BY_NC_ND, copyright_holder="Sikana Education"),
                             thumbnail = "https://img.youtube.com/vi/{}/maxresdefault.jpg".format(video["video"]["youtube_id"]),
+                            language = lang_obj.code,
                         )
+                        video_file = files.YouTubeVideoFile(
+                            youtube_id=video["video"]["youtube_id"],
+                            high_resolution = False,  # get 480v instead of 720v
+                        )
+                        video_node.add_file(video_file)
                         chapter_node.add_child(video_node)
-                        video_node.add_file(files.YouTubeVideoFile(youtube_id=video["video"]["youtube_id"]))
 
                         # For each subtitle of this video
                         for sub in video["subtitles"]:
-                            code = video["subtitles"][sub]["code"] if video["subtitles"][sub]["code"] != "pt-br" else "pt"
-
+                            sikana_sub_code = video["subtitles"][sub]["code"]
+                            sub_lang_obj = _getlang_caps(sikana_sub_code)
                             sub_file = files.SubtitleFile(
                                 path = BASE_URL + video["subtitles"][sub]["fileUrl"],
-                                language = languages.getlang(code).code,
+                                language = sub_lang_obj.code,
                             )
                             video_node.add_file(sub_file)
 
-    return node
+    return channel_node
+
+
+
+# CHEF
+################################################################################
+
+class SikanaChef(SushiChef):
+    """
+    This class contains the `get_channel` and `construct_channel` methods needed
+    to build the Sikana channels on Koibri Studio.
+    """
+
+    def get_channel(self, **kwargs):
+        """
+        Build the `ChannelNode` object. Uses `language_code` from `kwargs`.
+        """
+        # Channel language
+        if "language_code" in kwargs:
+            language_code = kwargs["language_code"]
+        else:
+            language_code = "en"  # default to en if no language specified on command line
+
+        lang_obj = _getlang_caps(language_code)
+        channel = ChannelNode(
+            source_domain = "sikana.tv",
+            source_id = "sikana-channel-" + language_code,
+            title = "Sikana (" + lang_obj.first_native_name + ")",
+            description = "Sikana videos are tiny nuggets of practical knowledge and life skills. "
+                          "Topics include sports, cooking, arts, health, agriculture, and much more. "
+                          "The videos are fun to watch and provide useful non-academic learning.",
+            thumbnail = "./sikana_logo.png",
+            language=lang_obj.code,
+        )
+
+        return channel
+
+
+    def construct_channel(self, **kwargs):
+        """
+        Constructs the Kolibri channel for the language `language_code`.
+        """
+
+        # Channel language
+        if "language_code" in kwargs:
+            language_code = kwargs["language_code"]
+        else:
+            language_code = "en"
+
+        channel = self.get_channel(**kwargs)  # Get the channel object
+        _build_tree(channel, language_code)   # Fill the channel with Sikana content
+        raise_for_invalid_channel(channel)    # Raise exceptions
+
+        return channel
+
+
+
+# CLI
+################################################################################
+
+if __name__ == '__main__':
+    sikana_chef = SikanaChef()
+    sikana_chef.main()

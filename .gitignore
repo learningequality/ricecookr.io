@@ -1,4 +1,4 @@
-parameters.yml
+credentials/parameters.yml
 .ricecookerfilecache
 __pycache__
 restore

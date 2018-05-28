@@ -1,2 +1,2 @@
-ricecooker==0.6.0
+ricecooker>=0.6.20
 PyYAML==3.12
