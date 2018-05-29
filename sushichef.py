@@ -123,6 +123,12 @@ def _build_tree(channel_node, language_code):
                         video_file = files.YouTubeVideoFile(
                             youtube_id=video["video"]["youtube_id"],
                             high_resolution = False,  # get 480v instead of 720v
+                            download_settings = {
+                                'postprocessors': [{
+                                    'key': 'ExecAfterDownload',
+                                    'exec_cmd': 'echo "Compressing to CRF 28" && ffmpeg -i {} -crf 28 {}_tmp.mp4 && mv {}_tmp.mp4 {}',
+                                }]
+                            }
                         )
                         video_node.add_file(video_file)
                         chapter_node.add_child(video_node)
