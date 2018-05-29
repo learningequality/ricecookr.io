@@ -1,16 +1,15 @@
-#!/usr/bin/python
-
+#!/usr/bin/env python
 import os
 import yaml
+from sushichef import SIKANA_LANGUAGES
 
-# Reading API credentials from parameters.yml
+# Reading Studio API token from credentials/parameters.yml
 with open("credentials/parameters.yml", "r") as f:
     parameters = yaml.load(f)
-
-# Sikana's API access
 KOLIBRI_TOKEN = parameters["kolibri"]["token"]
-LANGUAGES = ["en", "fr", "es", "pt", "pt-br", "pl", "tr", "ru", "zh", "zh-tw", "ar"]
 
-for ln in LANGUAGES:
-    os.system("./sushichef.py --reset --stage --token={} language_code={}".format(KOLIBRI_TOKEN, ln))
-# TODO(refactor this to send socket json --- can assume all channels running with --daemon)
+# TODO(ivan): refactor this to send socket json --- can assume all channels running with --daemon
+print('Running ALL Sikana channels.... this will take many hours')
+for ln in SIKANA_LANGUAGES:
+    print('\n\n***********\n***********\nRunning chef for language_code=', ln)
+    os.system("./sushichef.py -v --reset --stage --thumbnails --token={} language_code={}".format(KOLIBRI_TOKEN, ln))
