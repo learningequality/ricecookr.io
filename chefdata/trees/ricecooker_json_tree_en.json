@@ -1,0 +1,9 @@
+{
+  "source_domain": "sikana.tv",
+  "source_id": "sikana-channel-en",
+  "title": "Sikana (English)",
+  "description": "Sikana videos are tiny nuggets of practical knowledge and life skills. Topics include sports, cooking, arts, health, agriculture, and much more. The videos are fun to watch and provide useful non-academic learning.",
+  "thumbnail": "./sikana_logo.png",
+  "language": "en",
+  "children": []
+}
