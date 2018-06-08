@@ -6,12 +6,13 @@ Sikana's content is organized as follow:
 - Each program has chapters
 - Finally, each chapter has contents like videos, images, or PDF files.
 """
+import os
 import yaml
-from ricecooker.chefs import SushiChef
+
+from ricecooker.chefs import JsonTreeChef
 from ricecooker.classes import nodes, files
-from ricecooker.classes.nodes import ChannelNode
 from ricecooker.classes.licenses import get_license
-from ricecooker.exceptions import raise_for_invalid_channel
+from ricecooker.utils.jsontrees import write_tree_to_json_tree
 
 from le_utils.constants import licenses, languages
 from sikana_api import SikanaApi
@@ -51,6 +52,7 @@ def _build_tree(channel_node, language_code):
     Builds the content tree with Sikana content
     using Sikana API
     """
+    return ########################################################################################################
     lang_obj = _getlang_caps(language_code)
 
 
@@ -150,24 +152,41 @@ def _build_tree(channel_node, language_code):
 # CHEF
 ################################################################################
 
-class SikanaChef(SushiChef):
+class SikanaChef(JsonTreeChef):
     """
     This class contains the `get_channel` and `construct_channel` methods needed
     to build the Sikana channels on Koibri Studio.
     """
+    RICECOOKER_JSON_TREE_TPL = 'ricecooker_json_tree_{}.json'
 
-    def get_channel(self, **kwargs):
+    def get_json_tree_path(self, *args, **kwargs):
         """
-        Build the `ChannelNode` object. Uses `language_code` from `kwargs`.
+        Return path to ricecooker json tree file. Override this method to use
+        a custom filename, e.g., for channel with multiple languages.
         """
         # Channel language
         if "language_code" in kwargs:
             language_code = kwargs["language_code"]
         else:
             language_code = "en"  # default to en if no language specified on command line
-
         lang_obj = _getlang_caps(language_code)
-        channel = ChannelNode(
+
+        json_filename = self.RICECOOKER_JSON_TREE_TPL.format(lang_obj.code)
+        json_tree_path = os.path.join(self.TREES_DATA_DIR, json_filename)
+        return json_tree_path
+
+    def pre_run(self, args, options):
+        """
+        Build the ricecooker json tree. Uses `language_code` from `kwargs`.
+        """
+        # Channel language
+        if "language_code" in options:
+            language_code = options["language_code"]
+        else:
+            language_code = "en"  # default to en if no language specified on command line
+        
+        lang_obj = _getlang_caps(language_code)
+        channel_node = dict(
             source_domain = "sikana.tv",
             source_id = "sikana-channel-" + language_code,
             title = "Sikana (" + lang_obj.first_native_name + ")",
@@ -176,28 +195,11 @@ class SikanaChef(SushiChef):
                           "The videos are fun to watch and provide useful non-academic learning.",
             thumbnail = "./sikana_logo.png",
             language=lang_obj.code,
+            children=[],
         )
-
-        return channel
-
-
-    def construct_channel(self, **kwargs):
-        """
-        Constructs the Kolibri channel for the language `language_code`.
-        """
-
-        # Channel language
-        if "language_code" in kwargs:
-            language_code = kwargs["language_code"]
-        else:
-            language_code = "en"
-
-        channel = self.get_channel(**kwargs)  # Get the channel object
-        _build_tree(channel, language_code)   # Fill the channel with Sikana content
-        raise_for_invalid_channel(channel)    # Raise exceptions
-
-        return channel
-
+        _build_tree(channel_node, language_code)   # Fill the channel with Sikana content
+        json_tree_path = self.get_json_tree_path()
+        write_tree_to_json_tree(json_tree_path, channel_node)
 
 
 # CLI
