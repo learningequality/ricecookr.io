@@ -14,7 +14,7 @@ from ricecooker.classes import nodes, files
 from ricecooker.classes.licenses import get_license
 from ricecooker.utils.jsontrees import write_tree_to_json_tree
 
-from le_utils.constants import licenses, languages
+from le_utils.constants import licenses, languages, content_kinds, file_types
 from sikana_api import SikanaApi
 
 
@@ -52,9 +52,7 @@ def _build_tree(channel_node, language_code):
     Builds the content tree with Sikana content
     using Sikana API
     """
-    return ########################################################################################################
     lang_obj = _getlang_caps(language_code)
-
 
     # Building an access to Sikana API
     sikana_api = SikanaApi(
@@ -68,36 +66,42 @@ def _build_tree(channel_node, language_code):
     # Adding categories to tree
     for key, cat in categories["categories"].items():
         print("#### CATEGORY: {}".format(cat["name"]))
-        category_node = nodes.TopicNode( # category node
+        category_node = dict(                                    # category node
+            kind=content_kinds.TOPIC,
             source_id = cat["name"],
-            title = cat["localizedName"]
+            title = cat["localizedName"],
+            children=[],
         )
-        channel_node.add_child(category_node)
+        channel_node['children'].append(category_node)
 
         # Getting programs belonging to this category from Sikana API
         programs = sikana_api.get_programs(language_code, cat["name"])
 
         for prog in programs:
             print("### PROGRAM: {}".format(programs[prog]["name"]))
-            program_node = nodes.TopicNode( # program node
+            program_node = dict(                                  # program node
+                kind=content_kinds.TOPIC,
                 source_id = programs[prog]["nameCanonical"],
                 title = programs[prog]["name"],
                 description = programs[prog].get("description"),
                 thumbnail = programs[prog].get("image"),
                 language = lang_obj.code,
+                children=[],
             )
-            category_node.add_child(program_node)
+            category_node['children'].append(program_node)
 
             # Getting program details from Sikana API
             program = sikana_api.get_program(language_code, programs[prog]["nameCanonical"])
 
             for chap in program["listChaptersVideos"]:
                 print("## CHAPTER: {}. {}".format(program["listChaptersVideos"][chap]["infos"]["id"], program["listChaptersVideos"][chap]["infos"]["name"]))
-                chapter_node = nodes.TopicNode( # chapter node
+                chapter_node = dict(                              # chapter node
+                    kind=content_kinds.TOPIC,
                     source_id = str(program["listChaptersVideos"][chap]["infos"]["id"]),
                     title = program["listChaptersVideos"][chap]["infos"]["name"],
+                    children=[],
                 )
-                program_node.add_child(chapter_node)
+                program_node['children'].append(chapter_node)
 
                 # For each video in this chapter
                 if "videos" in program["listChaptersVideos"][chap]:
@@ -113,16 +117,19 @@ def _build_tree(channel_node, language_code):
                         except KeyError:
                             description = ""
 
-                        video_node = nodes.VideoNode(
+                        video_node = dict(
+                            kind=content_kinds.VIDEO,
                             source_id = v["nameCanonical"],
                             title = video["video"]["title"],
                             description = description,
                             derive_thumbnail = False,   # video-specific data
-                            license = get_license(licenses.CC_BY_NC_ND, copyright_holder="Sikana Education"),
+                            license = get_license(licenses.CC_BY_NC_ND, copyright_holder="Sikana Education").as_dict(),
                             thumbnail = "https://img.youtube.com/vi/{}/maxresdefault.jpg".format(video["video"]["youtube_id"]),
                             language = lang_obj.code,
+                            files=[],
                         )
-                        video_file = files.YouTubeVideoFile(
+                        video_file = dict(
+                            file_type=file_types.VIDEO,
                             youtube_id=video["video"]["youtube_id"],
                             high_resolution = False,  # get 480v instead of 720v
                             download_settings = {
@@ -132,18 +139,19 @@ def _build_tree(channel_node, language_code):
                                 }]
                             }
                         )
-                        video_node.add_file(video_file)
-                        chapter_node.add_child(video_node)
+                        video_node['files'].append(video_file)
+                        chapter_node['children'].append(video_node)
 
                         # For each subtitle of this video
                         for sub in video["subtitles"]:
                             sikana_sub_code = video["subtitles"][sub]["code"]
                             sub_lang_obj = _getlang_caps(sikana_sub_code)
-                            sub_file = files.SubtitleFile(
+                            sub_file = dict(
+                                file_type = file_types.SUBTITLES,
                                 path = BASE_URL + video["subtitles"][sub]["fileUrl"],
                                 language = sub_lang_obj.code,
                             )
-                            video_node.add_file(sub_file)
+                            video_node['files'].append(sub_file)
 
     return channel_node
 
