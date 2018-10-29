@@ -7,12 +7,14 @@ Sikana's content is organized as follow:
 - Finally, each chapter has contents like videos, images, or PDF files.
 """
 import os
+import cgi
 import yaml
+import requests
 
 from ricecooker.chefs import JsonTreeChef
 from ricecooker.classes import nodes, files
 from ricecooker.classes.licenses import get_license
-from ricecooker.utils.jsontrees import write_tree_to_json_tree
+from ricecooker.utils.jsontrees import read_tree_from_json, write_tree_to_json_tree
 
 from le_utils.constants import licenses, languages, content_kinds, file_types
 from sikana_api import SikanaApi
@@ -21,6 +23,8 @@ from sikana_api import SikanaApi
 ### Global variables
 BASE_URL = "https://www.sikana.tv"
 SIKANA_LANGUAGES = ["en", "fr", "es", "pt", "pt-br", "pl", "tr", "ru", "zh", "zh-tw", "ar"]
+SIKANA_TRANSCRIPTS_DIR = 'chefdata/transcripts'
+
 
 # Reading API credentials from parameters.yml
 with open("credentials/parameters.yml", "r") as f:
@@ -42,16 +46,85 @@ def _getlang_caps(code):
         code = parts[0] + '-' + parts[1].upper()
     return languages.getlang(code)
 
+def _get_video_transcript_url(language_code, video_id):
+    """
+    Returns the URL for getting video transcript.
+    """
+    url = BASE_URL + '/' + language_code
+    url += '/download-transcription?videoId=' + str(video_id)
+    url += '&lnCode=' + language_code
+    return url
+
+def _save_tanscript_content_to_filename(content, language_code, filename):
+    # ensure dir
+    transcript_dir = os.path.join(SIKANA_TRANSCRIPTS_DIR, language_code)
+    if not os.path.exists(transcript_dir):
+        os.makedirs(transcript_dir, exist_ok=True)
+    # save
+    transcript_path = os.path.join(transcript_dir, filename)
+    with open(transcript_path, 'wb') as transcript_file:
+        transcript_file.write(content)
+    return transcript_path
+
+    
+def get_video_transcript(language_code, video):
+    """
+    Returns a dict(title=, path=) for the video transcript if it exists,
+    else returns None.
+    """
+    transcript_url = _get_video_transcript_url(language_code, video['videoId'])
+    response = requests.get(transcript_url)
+    headers = response.headers
+    if 'Content-Disposition' not in headers:
+        return None  # Sikana `/download-transcription` will try to generate a
+                     # transcript even for viewos that don't exist in language_code
+                     # but we can distinguish these "best effort" transcriptions
+                     # by the fact that response won' have a filename.
+    else:
+        content_disposition = headers['Content-Disposition']
+        value, params = cgi.parse_header(content_disposition)
+        if 'filename' in params:
+            filename = params['filename'].encode('latin-1').decode('utf-8')
+            title = filename.replace('.pdf', '')
+        else:
+            raise Exception("Content-Disposition present but no filename for url " + transcript_url)
+        
+        transcript_path = _save_tanscript_content_to_filename(response.content, language_code, filename)
+        return { 'title':title, 'path':transcript_path, 'filename':filename, 'url':transcript_url }
+
+
+def _remove_empty_topic_nodes(json_tree_path):
+    channel_node = read_tree_from_json(json_tree_path)
+
+    # Remove empty subject_tree topic nodes
+    def _remove_empty_child_topic_nodes(subtree):
+        if 'children' in subtree:
+            new_children = []
+            for child in subtree['children']:
+                if 'children' in child:
+                    # recursive pre-traversal down the tree...
+                    _remove_empty_child_topic_nodes(child)
+                    if len(child['children']) == 0:
+                        pass
+                    else:
+                        new_children.append(child)  # non-empty topic nodes
+                else:
+                    new_children.append(child)      # leaf nodes
+            subtree['children'] = new_children
+    _remove_empty_child_topic_nodes(channel_node)
+
+    write_tree_to_json_tree(json_tree_path, channel_node)
 
 
 # MAIN TREE-BUILDING LOGIC
 ################################################################################
 
+
 def _build_tree(channel_node, language_code):
     """
-    Builds the content tree with Sikana content
-    using Sikana API
+    Builds the content tree with Sikana content using Sikana API.
     """
+    print("Started building the content structure from Sikana API.")
     lang_obj = _getlang_caps(language_code)
 
     # Building an access to Sikana API
@@ -116,7 +189,8 @@ def _build_tree(channel_node, language_code):
                             description = video["video"]["description"]
                         except KeyError:
                             description = ""
-
+                        
+                        # Video node
                         video_node = dict(
                             kind=content_kinds.VIDEO,
                             source_id = v["nameCanonical"],
@@ -140,20 +214,40 @@ def _build_tree(channel_node, language_code):
                             }
                         )
                         video_node['files'].append(video_file)
-                        chapter_node['children'].append(video_node)
-
                         # For each subtitle of this video
                         for sub in video["subtitles"]:
                             sikana_sub_code = video["subtitles"][sub]["code"]
                             sub_lang_obj = _getlang_caps(sikana_sub_code)
+                            print("#    SUBS: {}".format(sub_lang_obj.code))
                             sub_file = dict(
                                 file_type = file_types.SUBTITLES,
                                 path = BASE_URL + video["subtitles"][sub]["fileUrl"],
                                 language = sub_lang_obj.code,
                             )
                             video_node['files'].append(sub_file)
+                        chapter_node['children'].append(video_node)
 
-    return channel_node
+                        # New Oct 2018: add PDF doc of transcript for each video
+                        transcript = get_video_transcript(language_code, video)
+                        if transcript:
+                            print("#    TRANSCRIPT: {} from {}".format(transcript['title'], transcript['url']))
+                            # Transcript document node
+                            transcript_node = dict(
+                                kind=content_kinds.DOCUMENT,
+                                source_id = transcript['url'],
+                                title = transcript['title'],
+                                description = description,
+                                license = get_license(licenses.CC_BY_NC_ND, copyright_holder="Sikana Education").as_dict(),
+                                language = lang_obj.code,
+                                files=[],
+                            )
+                            transcript_file = dict(
+                                file_type=file_types.DOCUMENT,
+                                path=transcript['path']
+                            )
+                            transcript_node['files'].append(transcript_file)
+                            chapter_node['children'].append(transcript_node)
+
 
 
 
@@ -176,9 +270,8 @@ class SikanaChef(JsonTreeChef):
         if "language_code" in kwargs:
             language_code = kwargs["language_code"]
         else:
-            language_code = "en"  # default to en if no language specified on command line
+            raise Exception('No language_code option passed in --- specify language e.g. language_code=ar')
         lang_obj = _getlang_caps(language_code)
-
         json_filename = self.RICECOOKER_JSON_TREE_TPL.format(lang_obj.code)
         json_tree_path = os.path.join(self.TREES_DATA_DIR, json_filename)
         return json_tree_path
@@ -191,8 +284,7 @@ class SikanaChef(JsonTreeChef):
         if "language_code" in options:
             language_code = options["language_code"]
         else:
-            language_code = "en"  # default to en if no language specified on command line
-        
+            raise Exception('No language_code option passed in --- specify language e.g. language_code=ar')
         lang_obj = _getlang_caps(language_code)
         channel_node = dict(
             source_domain = "sikana.tv",
@@ -206,8 +298,16 @@ class SikanaChef(JsonTreeChef):
             children=[],
         )
         _build_tree(channel_node, language_code)   # Fill the channel with Sikana content
-        json_tree_path = self.get_json_tree_path()
+
+        kwargs = {}   # combined dictionary of argparse args and extra options
+        kwargs.update(args)
+        kwargs.update(options)
+        json_tree_path = self.get_json_tree_path(**kwargs)
+
+        print('Writing ricecooker json tree to ', json_tree_path)
         write_tree_to_json_tree(json_tree_path, channel_node)
+        # TODO: remove empty topic nodes
+        _remove_empty_topic_nodes(json_tree_path)
 
 
 # CLI
