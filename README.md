@@ -4,10 +4,6 @@ Integration of Sikana's content into Learning Equality's [Kolibri Studio](https:
 Uses [Ricecooker](https://github.com/learningequality/ricecooker) framework.
 
 
-## TODO
-  - drop empty category/program/chapter folders (no need to show Topics if no videos in them)
-    e.g. Arabic has only Health CATEGORY https://studio.learningequality.org/channels/09d96cfabec451309066517930bdab9f/edit/09d96cf
-
 
 ### Sikana's data structure
 For each language, you'll find the content organized as follow:

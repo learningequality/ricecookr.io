@@ -1,3 +1,8 @@
+chefdata/transcripts
+
+.ipynb_checkpoints/
+
+
 credentials/parameters.yml
 .ricecookerfilecache
 __pycache__
