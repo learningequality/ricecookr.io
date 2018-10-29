@@ -37,7 +37,7 @@ SIKANA_SECRET = parameters["api"]["secret"]
 ################################################################################
 
 DEFAULT_CHANNEL_DESCRIPTIONS = {
-    'ar': "الآلاف من المهارات في جيبك. تحسين حياتك والعالم من حولك من خلال التعلم العملي. انضم إلى مجتمعنا. أن يكون لها تأثير"
+    'ar': "في هذه القناة ستكتسب مهارات عملية لمساعدة نفسك والآخرين في مواقف الإسعافات الأولية والكوارث الطبيعية. الآلاف من المهارات في جيبك. حسّن من حياتك وحياة الآخرين في العالم من حولك من خلال التعلم العملي. انضم إلى مجتمعنا. وليكن لك تأثير"
 }
 def get_channel_description(language_code):
     if language_code in ['ar']:
@@ -77,6 +77,8 @@ def _save_tanscript_content_to_filename(content, language_code, filename):
     if not os.path.exists(transcript_dir):
         os.makedirs(transcript_dir, exist_ok=True)
     # save
+    if '/' in filename:
+        filename = filename.replace('/', '_')
     transcript_path = os.path.join(transcript_dir, filename)
     with open(transcript_path, 'wb') as transcript_file:
         transcript_file.write(content)
