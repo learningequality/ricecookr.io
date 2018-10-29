@@ -6,13 +6,13 @@ Sikana's content is organized as follow:
 - Each program has chapters
 - Finally, each chapter has contents like videos, images, or PDF files.
 """
+from bs4 import BeautifulSoup
 import os
 import cgi
 import yaml
 import requests
 
 from ricecooker.chefs import JsonTreeChef
-from ricecooker.classes import nodes, files
 from ricecooker.classes.licenses import get_license
 from ricecooker.utils.jsontrees import read_tree_from_json, write_tree_to_json_tree
 
@@ -31,6 +31,22 @@ with open("credentials/parameters.yml", "r") as f:
     parameters = yaml.load(f)
 SIKANA_CLIENT_ID = parameters["api"]["client_id"]
 SIKANA_SECRET = parameters["api"]["secret"]
+
+
+# DESCRIPTIONS
+################################################################################
+
+DEFAULT_CHANNEL_DESCRIPTIONS = {
+    'ar': "الآلاف من المهارات في جيبك. تحسين حياتك والعالم من حولك من خلال التعلم العملي. انضم إلى مجتمعنا. أن يكون لها تأثير"
+}
+def get_channel_description(language_code):
+    if language_code in ['ar']:
+        return DEFAULT_CHANNEL_DESCRIPTIONS[language_code]
+    lang_url = 'https://www.sikana.tv/' + language_code
+    html = requests.get(lang_url).text
+    page = BeautifulSoup(html, 'html5lib')
+    description_meta = page.find('head').find('meta', {'name':'description'})
+    return description_meta['content']
 
 
 
@@ -96,7 +112,6 @@ def get_video_transcript(language_code, video):
 def _remove_empty_topic_nodes(json_tree_path):
     channel_node = read_tree_from_json(json_tree_path)
 
-    # Remove empty subject_tree topic nodes
     def _remove_empty_child_topic_nodes(subtree):
         if 'children' in subtree:
             new_children = []
@@ -105,15 +120,18 @@ def _remove_empty_topic_nodes(json_tree_path):
                     # recursive pre-traversal down the tree...
                     _remove_empty_child_topic_nodes(child)
                     if len(child['children']) == 0:
-                        pass
+                        pass                        # skip empty topic nodes 
                     else:
-                        new_children.append(child)  # non-empty topic nodes
+                        new_children.append(child)  # keep non-empty topic nodes
                 else:
-                    new_children.append(child)      # leaf nodes
+                    new_children.append(child)      # keep leaf nodes
             subtree['children'] = new_children
     _remove_empty_child_topic_nodes(channel_node)
 
     write_tree_to_json_tree(json_tree_path, channel_node)
+
+
+
 
 
 # MAIN TREE-BUILDING LOGIC
@@ -286,13 +304,14 @@ class SikanaChef(JsonTreeChef):
         else:
             raise Exception('No language_code option passed in --- specify language e.g. language_code=ar')
         lang_obj = _getlang_caps(language_code)
+
+        channel_description = get_channel_description(language_code)
+
         channel_node = dict(
             source_domain = "sikana.tv",
             source_id = "sikana-channel-" + language_code,
             title = "Sikana (" + lang_obj.first_native_name + ")",
-            description = "Sikana videos are tiny nuggets of practical knowledge and life skills. "
-                          "Topics include sports, cooking, arts, health, agriculture, and much more. "
-                          "The videos are fun to watch and provide useful non-academic learning.",
+            description = channel_description,
             thumbnail = "./sikana_logo.png",
             language=lang_obj.code,
             children=[],
@@ -306,8 +325,8 @@ class SikanaChef(JsonTreeChef):
 
         print('Writing ricecooker json tree to ', json_tree_path)
         write_tree_to_json_tree(json_tree_path, channel_node)
-        # TODO: remove empty topic nodes
         _remove_empty_topic_nodes(json_tree_path)
+
 
 
 # CLI

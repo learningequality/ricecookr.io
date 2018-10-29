@@ -1,6 +1,6 @@
 #!/usr/bin/python
 import requests
-import json
+
 
 class SikanaApi:
     """
@@ -42,7 +42,7 @@ class SikanaApi:
         if response.status_code != 200:
             raise Exception("GET /api/languages returned code " + format(response.status_code) + ": " + format(response.text))
         return response.json()
-
+        
     def get_categories(self, language_code):
         """
         Returns Sikana's categories for a given language
