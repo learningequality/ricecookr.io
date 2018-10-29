@@ -47,7 +47,10 @@ class SikanaApi:
         """
         Returns Sikana's categories for a given language
         """
-        url_v1 = self.base_url + "api/categories/languages/" + language_code + "?access_token=" + self.token
+        if language_code == 'pt':  # workaround for incomlet pt strings; use pt-br instead
+            url_v1 = self.base_url + "api/categories/languages/" + language_code + '-br' + "?access_token=" + self.token
+        else:
+            url_v1 = self.base_url + "api/categories/languages/" + language_code + "?access_token=" + self.token
         url = url_v1 + "&version=2"
         
         # A. Extract string translations from url_v1 (used in step C.)
