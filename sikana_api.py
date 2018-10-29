@@ -47,11 +47,41 @@ class SikanaApi:
         """
         Returns Sikana's categories for a given language
         """
-        url = self.base_url + "api/categories/languages/" + language_code + "?access_token=" + self.token + "&version=2"
+        url_v1 = self.base_url + "api/categories/languages/" + language_code + "?access_token=" + self.token
+        url = url_v1 + "&version=2"
+        
+        # A. Extract string translations from url_v1 (used in step C.)
+        name2localizedName = {}
+        for cat in requests.get(url_v1).json()['categories']:
+            name2localizedName[cat['name']] = cat['localizedName']
+        print(name2localizedName)
+        # helper method
+        def get_localizedName(name, localizedName):
+            if '__' in localizedName:
+                if name in name2localizedName:
+                    localizedName = name2localizedName[name]
+                elif name == 'diy':
+                    localizedName = 'DIY'
+                elif name == 'cooking' and 'food' in name2localizedName:
+                    localizedName = name2localizedName['food']
+                else:
+                    print('coundnt find transaltion for', name, 'so returning default', localizedName)
+                    localizedName = localizedName.replace('_', '')
+            return localizedName
+
+        # B. Get the v2 categories
         response = requests.get(url)
         if response.status_code != 200:
             raise Exception("GET /api/categories/languages/" + language_code + " returned code " + format(response.status_code) + ": " + format(response.text))
-        return response.json()
+        response_json = response.json()
+
+        # C. Get translations from localizedName in v1 API
+        for key, cat in response_json['categories'].items():
+            cat['localizedName'] = get_localizedName(cat['name'], cat['localizedName'])
+
+        return response_json 
+
+
 
     def get_programs(self, language_code, category_name):
         """
