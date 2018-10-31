@@ -7,16 +7,17 @@ Sikana's content is organized as follow:
 - Finally, each chapter has contents like videos, images, or PDF files.
 """
 from bs4 import BeautifulSoup
-import os
 import cgi
-import yaml
+import json
+import os
 import requests
+import yaml
 
 from ricecooker.chefs import JsonTreeChef
 from ricecooker.classes.licenses import get_license
 from ricecooker.utils.jsontrees import read_tree_from_json, write_tree_to_json_tree
-
 from le_utils.constants import licenses, languages, content_kinds, file_types
+
 from sikana_api import SikanaApi
 
 
@@ -49,29 +50,31 @@ def get_channel_description(language_code):
     return description_meta['content']
 
 
-CORRECTIONS = {
-  "ar": {
-    "modify": [
-      {
-        "source_id": "natural-disaster",
-        "kind": "topic",
-        "old_title": "إعداد في حالة وقوع كارثة طبيعية",
-        "new_title": "الاستعداد للكوارث الطبيعية"
-      },
-      {
-        "source_id": "first-aid",
-        "kind": "topic",
-        "old_title": "اإلسعافات األولية",
-        "new_title": "الإسعافات الأولية"
-      },
-      {
-        "old_description": "\"الحوادث في الحياة اليومية هن المسؤولات عن ملايين الوفيات سنويا في جميع أنحاء العالم. ولكن لفتات بسيطة، بيد  الجميع، يمكن بيها إنقاذ الأرواح.\r\n في هذا البرنامج سوف تتعلم إيماأت الإسعافات الأولية\"",
-        "new_description": "كثير من الحوادث في الحياة اليومية تكون مسؤولة عن ملايين الوفيات سنويا في جميع أنحاء العالم. ولكن يمكن للفتات بسيطة متوفرة بيد الجميع إنقاذ أرواح من حولنا. في هذا البرنامج سوف تتعلم مهارات أساسية في الإسعافات الأولية",
-        "source_id": "first-aid"
-      }
-    ]
-  }
-}
+# CORRECTIONS
+################################################################################
+
+CORRECTIONS_FILE = 'chefdata/corrections.json'
+CORRECTIONS_DATA = json.load(open(CORRECTIONS_FILE))
+
+def apply_corrections_to_json_tree(json_tree_path, corrections_for_source_id):
+    channel_node = read_tree_from_json(json_tree_path)
+
+    def _apply_corrections(subtree):
+        source_id = subtree['source_id']
+        if source_id in corrections_for_source_id:
+            corrections = corrections_for_source_id[source_id]
+            for attr, correction in corrections['attributes'].items():
+                subtree[attr] = correction['new_value']
+        # recusively continue down the tree
+        if 'children' in subtree:
+            for child in subtree['children']:
+                _apply_corrections(child)
+
+    _apply_corrections(channel_node)
+
+    write_tree_to_json_tree(json_tree_path, channel_node)
+
+
 
 
 
@@ -357,6 +360,9 @@ class SikanaChef(JsonTreeChef):
         print('Writing ricecooker json tree to ', json_tree_path)
         write_tree_to_json_tree(json_tree_path, channel_node)
         _remove_empty_topic_nodes(json_tree_path)
+        if language_code == 'ar':
+            corrections_for_source_id = CORRECTIONS_DATA['ar']['correction_for_source_id']
+            apply_corrections_to_json_tree(json_tree_path, corrections_for_source_id)
 
 
 
