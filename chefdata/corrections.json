@@ -24,5 +24,18 @@
         }
       }
     }
+  },
+  "es": {
+    "correction_for_source_id": {
+      "natural-disaster": {
+        "source_id": "diy",
+        "attributes": {
+          "title": {
+            "old_value": "H\u00e1zlo t\u00fa mismo - DIY",
+            "new_value": "Hazlo tu mismo - DIY"
+          }
+        }
+      }
+    }
   }
 }
