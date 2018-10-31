@@ -49,6 +49,31 @@ def get_channel_description(language_code):
     return description_meta['content']
 
 
+CORRECTIONS = {
+  "ar": {
+    "modify": [
+      {
+        "source_id": "natural-disaster",
+        "kind": "topic",
+        "old_title": "إعداد في حالة وقوع كارثة طبيعية",
+        "new_title": "الاستعداد للكوارث الطبيعية"
+      },
+      {
+        "source_id": "first-aid",
+        "kind": "topic",
+        "old_title": "اإلسعافات األولية",
+        "new_title": "الإسعافات الأولية"
+      },
+      {
+        "old_description": "\"الحوادث في الحياة اليومية هن المسؤولات عن ملايين الوفيات سنويا في جميع أنحاء العالم. ولكن لفتات بسيطة، بيد  الجميع، يمكن بيها إنقاذ الأرواح.\r\n في هذا البرنامج سوف تتعلم إيماأت الإسعافات الأولية\"",
+        "new_description": "كثير من الحوادث في الحياة اليومية تكون مسؤولة عن ملايين الوفيات سنويا في جميع أنحاء العالم. ولكن يمكن للفتات بسيطة متوفرة بيد الجميع إنقاذ أرواح من حولنا. في هذا البرنامج سوف تتعلم مهارات أساسية في الإسعافات الأولية",
+        "source_id": "first-aid"
+      }
+    ]
+  }
+}
+
+
 
 # HELPER METHODS
 ################################################################################
@@ -210,6 +235,10 @@ def _build_tree(channel_node, language_code):
                         except KeyError:
                             description = ""
                         
+                        if 'youtube_id' not in video["video"]:
+                            print("# SKIPPING video because MISSING youtube_id in video json: {}".format(video["video"]))
+                            continue
+
                         # Video node
                         video_node = dict(
                             kind=content_kinds.VIDEO,
