@@ -2,8 +2,8 @@ chefdata/transcripts
 
 .ipynb_checkpoints/
 
+credentials/
 
-credentials/parameters.yml
 .ricecookerfilecache
 __pycache__
 restore
