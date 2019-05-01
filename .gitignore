@@ -4,6 +4,10 @@ chefdata/transcripts
 
 credentials/
 
+# corrections
+chefdata/corrections/
+chefdata/studiotrees/
+
 .ricecookerfilecache
 __pycache__
 restore

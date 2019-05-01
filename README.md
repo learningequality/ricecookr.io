@@ -71,4 +71,43 @@ Note: this will likely take a whole day for the first time.
 Currently setup on `vader` under the `/data/sushi-chef-sikana` folder.
 TODO: scheduled to run on the third day of every month.
 
-    
+
+
+## Corrections
+The content channels we import from the Sikana API requires various correction
+to be applied (typo fixes and translations). The sections below describe the 
+corrections that must be manually applied after each chef run for the specific 
+channels. See the [corrections docs](https://ricecooker.readthedocs.io/en/latest/developer/corrections.html) for more info.
+
+
+### Arabic
+The content we obtain from the Sikana API contains certain videos in Arabic that
+have titles and descriptions in French. In order to enhance the usability of this
+channel, we use the [corrections workflow](https://ricecooker.readthedocs.io/en/latest/developer/corrections.html)
+to replace the French titles with titles in Arabic.
+
+  - [Studio channel](https://studio.learningequality.org/channels/09d96cfabec451309066517930bdab9f/edit/09d96cf)
+  - [List of corrections to apply](https://docs.google.com/spreadsheets/d/1O0eE6grpp65OlW06B9gH8mNd93vDMKmFso_DNkuOCZA/edit#gid=0)
+
+Before corrections:
+
+ ![Sikana AR channel before corrections](docs/images/sikana-ar-before-corrections.png)
+ 
+Applying the corrections:
+
+    corrections apply 09d96cfabec451309066517930bdab9f \
+        --gsheet_id=1O0eE6grpp65OlW06B9gH8mNd93vDMKmFso_DNkuOCZA --gid=0 \
+        --modifyattrs='title,description'
+
+After corrections have been applied:
+
+![Sikana AR channel after corrections](docs/images/sikana-ar-after-corrections.png)
+
+As can be seen in the above screenshot, the French titles have been replaced with
+the Arabic translations.
+
+
+Note the corrections must be re-applied after each chef run and the
+[corrections gsheet](https://docs.google.com/spreadsheets/d/1O0eE6grpp65OlW06B9gH8mNd93vDMKmFso_DNkuOCZA/edit#gid=0)
+may need to be updated if new nodes are added.
+
