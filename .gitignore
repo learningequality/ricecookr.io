@@ -1,16 +1,27 @@
 chefdata/transcripts
+# chefdata/trees  -- we intentionally choose to commit in git to keep history
 
-.ipynb_checkpoints/
 
 credentials/
 
 # corrections
 chefdata/corrections/
 chefdata/studiotrees/
+chefdata/*-studiotree-export.json
+corrections-export.csv
+corrections-import.csv
 
+
+# ricecooker stadanrd
+.ricecooker-temp
+logs/
 .ricecookerfilecache
 __pycache__
 restore
 storage
 sikana_api.pyc
 venv
+
+
+# WIP st
+.ipynb_checkpoints/

@@ -12,4 +12,4 @@ KOLIBRI_TOKEN = parameters["kolibri"]["token"]
 print('Running ALL Sikana channels.... this will take many hours')
 for ln in SIKANA_LANGUAGES:
     print('\n\n***********\n***********\nRunning chef for language_code=', ln)
-    os.system("./sushichef.py -v --reset --stage --thumbnails --token={} language_code={}".format(KOLIBRI_TOKEN, ln))
+    os.system("./sushichef.py -v --thumbnails --token={} language_code={}".format(KOLIBRI_TOKEN, ln))
