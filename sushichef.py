@@ -186,6 +186,12 @@ def _build_tree(channel_node, language_code):
 
     # Adding categories to tree
     for key, cat in categories["categories"].items():
+
+        # 21 July 2020: refresh access token after each category to avoid the
+        # error HTTP 401 that says "The access token provided has expired."
+        sikana_api.token = sikana_api.get_access_token(sikana_api.client_id, sikana_api.secret)
+
+
         print("#### CATEGORY: {}".format(cat["name"]))
         category_node = dict(                                    # category node
             kind=content_kinds.TOPIC,

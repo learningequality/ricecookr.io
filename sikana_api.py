@@ -15,11 +15,10 @@ class SikanaApi:
         self.base_url = base_url or "https://www.sikana.tv/"
         self.client_id = client_id
         self.secret = secret
-        self.token = self.__build_token(client_id, secret)
+        self.token = self.get_access_token(client_id, secret)
 
-    def __build_token(self, client_id, secret):
+    def get_access_token(self, client_id, secret):
         """
-        Private method
         Builds an OAuth access token and returns it
         """
         build_token_url = self.base_url + "oauth/v2/token"
